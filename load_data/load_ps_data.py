@@ -1,57 +1,52 @@
-import sqlalchemy
+import os
 import pandas as pd
 
+import load_ps_data_fun as ps
+import pecan_cred as cred
 
-def create_engine(
-        user_name: str,
-        password: str,
-        host: str,
-        port: int,
-        db: str
-        ) -> sqlalchemy.engine.Engine:
-    """Create a PostgreSQL engine."""
-    url = "postgresql://{}:{}@{}:{}/{}".format(user_name, password, host, port, db)
-    engine = sqlalchemy.create_engine(url)
-    return engine
+project_dir = os.path.dirname(os.getcwd())
+out_path = os.path.join(project_dir, "data", "pecan")
 
+# parameters
+resolution = 15
+col = ['use']
+# date_limits = ('01-01-2015 00:00:00', '12-31-2015 23:59:00')
+meta = pd.read_csv(os.path.join(out_path, "dataport-metadata.csv"), index_col=False)
+house_ids = list(meta['dataid'].values)
+# house_ids = [5785]
+print("Num IDs: ", len(house_ids))
 
-def load_query(
-        con,
-        dataid,
-        res,
-        col=None,
-        date_limits=None
-        ):
-    assert res in [1, 15, 60]
-    if res == 1:
-        table_name = "electricity_egauge_minutes"
-        time_name = "localminute"
-    elif res == 15:
-        table_name = "electricity_egauge_15min"
-        time_name = "local_15min"
-    elif res == 60:
-        table_name = "electricity_egauge_hours"
-        time_name = "localhour"
+# set up connection
+engine = ps.create_engine(
+    user_name=cred.user_name,
+    password=cred.password,
+    host='dataport.pecanstreet.org',
+    port=5434,
+    db='postgres'
+)
+con = engine.connect()
 
-    if col is None or not col:
-        selection = "*"
-    else:
-        selection = ','.join([time_name] + col)
+col_names = "_".join(sorted(col)) if col else "all_col"
+data_dir = "{}min_".format(resolution) + col_names
+data_path = os.path.join(out_path, data_dir)
+if not os.path.exists(data_path):
+    os.makedirs(data_path)
 
-    query = [
-        "SELECT", selection,
-        "FROM", "university.{}".format(table_name),
-        "WHERE",
-        "dataid={}".format(str(dataid))
-    ]
-    if date_limits:
-        query += [
-            "AND", time_name,
-            "BETWEEN", "'{}'".format(date_limits[0]), "and", "'{}'".format(date_limits[1])
-        ]
+for i, dataid in enumerate(house_ids):
+    print("{} Querrying houseid: {}".format(i, dataid))
+    # run query
+    df = ps.load_query(
+        con=con,
+        dataid=dataid,
+        res=resolution,
+        col=col,
+        # date_limits=date_limits,
+    )
+    if len(df) > 0:
+        # save
+        df.to_csv(os.path.join(data_path, "{}.csv".format(dataid)), index=False)
+    print(i, " len: ", len(df))
 
-    query = " ".join(query)
-    df = pd.read_sql_query(query, con=con)
-    df.rename(index=str, columns={time_name: "localtime"}, inplace=True)
-    return df
+con.close()
+
 
