@@ -1,5 +1,5 @@
 # Federated K-Means Clustering Algorithm
-You can find the details on the algorithm and a proof of concept in the [short paper](Federated-kmeans.pdf)
+You can find the details on the algorithm and a proof of concept in the [short paper](Federated_kmeans.pdf)
 
 ## Abstract
 An algorithm to cluster distributed datasets without communicating data is introduced. It builds upon the concept of federated learning, distributed K-Means and mini-batch K-Means. Results on synthetic data and real data are presented for a non-iid setting. The algorithm is able to produce a clustering of similar or better quality than central K-Means clustering, while preserving privacy.
